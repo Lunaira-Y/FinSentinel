@@ -1,4 +1,5 @@
 # FinSentinel: Chinese Financial NLP Pipeline & Cross-Sectional Alpha Exploration
+<<<<<<< HEAD
 
 FinSentinel is an end-to-end natural language processing pipeline designed to extract actionable quantitative signals from Chinese financial news. Unlike typical projects that rely on public datasets, this pipeline introduces a novel data construction method using **DeepSeek-V3 (via API)** for automated zero-shot annotation. It features a comprehensive benchmark comparing traditional machine learning (TF-IDF + Logistic Regression) against deep learning (Chinese FinBERT).
 
@@ -88,3 +89,6 @@ This project is built upon the shoulders of the open-source community. Special t
   * Reference Paper: *Huang, Allen H., Hui Wang, and Yi Yang. "FinBERT: A Large Language Model for Extracting Information from Financial Text." Contemporary Accounting Research (2022).*
 * **Zero-Shot Annotation**: The automated dataset construction was powered by **DeepSeek-V3** via its open API.
 * **Financial Data**: Historical A-share market data was retrieved using the `yfinance` library.
+=======
+An end-to-end Chinese financial NLP pipeline: from LLM-assisted dataset construction to FinBERT sentiment analysis and cross-sectional stock return correlation.
+>>>>>>> 1c0948a43b2e33d276251208356a164e5fd14d67
