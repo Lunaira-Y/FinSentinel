@@ -1,0 +1,16 @@
+pandas
+numpy
+matplotlib
+seaborn
+scikit-learn
+scipy
+torch
+transformers
+openai
+beautifulsoup4
+requests
+rich
+schedule
+yfinance
+tqdm
+urllib3

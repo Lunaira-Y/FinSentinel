@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Data & Logs
+data/
+logs/
+project/data/
+project/logs/
+# Ignore everything in analysis_reports but allow images
+analysis_reports/*
+!analysis_reports/sentiment_price_analysis/
+analysis_reports/sentiment_price_analysis/*
+!analysis_reports/sentiment_price_analysis/*.png
+project/analysis_reports/
+
+# Models (Large Files)
+finbert_local/
+project/finbert_local/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
