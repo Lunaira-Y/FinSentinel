@@ -57,10 +57,14 @@ Furthermore, the project extends beyond NLP metrics by conducting a cross-sectio
 
 ## 📂 Project Structure
 
-- `project-1/`: Core functional scripts (Crawler, Labeler, Signal Analysis).
-- `data/`: Raw news data collected from Eastmoney Guba.
-- `analysis_reports/`: Generated reports, distribution charts, and benchmark results.
-- `finbert_local/`: (Optional) Local directory for FinBERT model weights.
+- `src/`: Core functional modules.
+  - `crawler/`: Data acquisition logic for Eastmoney Guba.
+  - `labeling/`: LLM-assisted zero-shot sentiment annotation (DeepSeek-V3).
+  - `analysis/`: Aggregation, benchmarking, and signal-to-price correlation logic.
+- `config/`: Centralized project settings and path management.
+- `data/`: Raw news data storage (Git-ignored).
+- `analysis_reports/`: Generated analytics and visualization results.
+- `finbert_local/`: Local directory for FinBERT model weights.
 
 ---
 

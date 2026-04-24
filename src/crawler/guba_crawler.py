@@ -5,6 +5,7 @@ import os
 import random
 import time
 import re
+import sys
 from typing import List
 
 import pandas as pd
@@ -21,24 +22,20 @@ from rich.layout import Layout
 from rich.panel import Panel
 from rich.table import Table
 
-# --- 配置与常量 (Configuration) ---
-# --- 配置与常量 (Configuration) ---
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-BASE_DIR = os.path.dirname(CURRENT_DIR)
+# --- 导入项目统一配置 ---
+# 这里的 sys.path 处理是为了让脚本在直接运行时也能找到 config 包
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from config.settings import DATA_DIR, LOG_DIR
 
 UA_LIBRARY = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) rv:121.0) Gecko/20100101 Firefox/121.0",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
     "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
 ]
 
 BASE_URL = "https://guba.eastmoney.com/list,{code},{page},f.html"
-DATA_ROOT = os.path.join(BASE_DIR, "data")
-LOG_DIR = os.path.join(BASE_DIR, "logs")
-
-
 # 默认股票列表
 DEFAULT_STOCK_LIST = ["000001", "600519", "300750", "000002", "002230"]
 TOP_SAMPLE_LIMIT = 10
@@ -58,9 +55,6 @@ class StockNewsCrawler:
         return session
 
     def fetch_detail(self, url: str) -> str:
-        """
-        [资讯页精准适配] 详情页抓取：集成短响应预警与多选择器增强
-        """
         try:
             time.sleep(random.uniform(3.0, 5.0))
             headers = {
@@ -72,9 +66,8 @@ class StockNewsCrawler:
             response = self.session.get(url, headers=headers, timeout=15)
             response.encoding = 'utf-8'
             
-            # [新增] 空响应/投毒检测
             if len(response.text) < 500:
-                self.logger.warning(f"⚠️ 收到异常短响应 ({len(response.text)} 字节)，疑似触发了空数据投毒: {url}")
+                self.logger.warning(f"⚠️ 收到异常短响应: {url}")
             
             if response.status_code != 200:
                 return f"ERROR_HTTP_{response.status_code}"
@@ -82,7 +75,6 @@ class StockNewsCrawler:
             soup = BeautifulSoup(response.text, 'html.parser')
             for s in soup(["script", "style"]): s.decompose()
 
-            # [精准适配] 资讯页正文选择器优先池
             selectors = ['.zwconbody', '.article-body', '#zw_body', '.mainbody', '.article-content', '#ContentBody']
             content = ""
             for selector in selectors:
@@ -101,10 +93,7 @@ class StockNewsCrawler:
             return f"ERROR_EXCEPTION"
 
     def fetch_page(self, stock_code: str) -> pd.DataFrame:
-        """
-        [兼容模式提取] 列表页采样：优化资讯链接识别逻辑
-        """
-        url = BASE_URL.format(code=stock_code)
+        url = BASE_URL.format(code=stock_code, page=1)
         try:
             time.sleep(random.uniform(1.0, 2.0))
             self.logger.info(f"正在扫描 {stock_code} 资讯列表页...")
@@ -146,29 +135,24 @@ class NLPPipeline:
     def process(df: pd.DataFrame) -> pd.DataFrame:
         if df.empty: return df
 
-        # 1. 基础清洗
         def basic_clean(text: str) -> str:
             return text.replace(',', '，').replace('"', '”')
 
         df['content'] = df['content'].apply(basic_clean)
-
-        # [指令优化] 恢复硬过滤逻辑，剔除空解析数据
         df = df[~df['content'].str.contains("ERROR_PARSE_EMPTY", na=False)]
 
-        # 2. 分句逻辑
         def split_to_sentences(text: str) -> List[str]:
             sentences = re.split(r'[。！？!?]+', text)
-            return [s.strip() for s in sentences if len(s.strip()) >= 10] # 长度提升至 10
+            return [s.strip() for s in sentences if len(s.strip()) >= 10]
 
         df['sentence'] = df['content'].apply(split_to_sentences)
         df = df.explode('sentence')
-        
         df = df.dropna(subset=['sentence'])
-        df = df[df['sentence'].str.len() >= 10] # 确保炸裂后的优质过滤
+        df = df[df['sentence'].str.len() >= 10]
         
         return df[['stock_code', 'date', 'title', 'sentence', 'url']]
 
-# --- 系统控制器 (FinSentinel 部分保持不变) ---
+# --- 系统控制器 ---
 class FinSentinel:
     def __init__(self, stock_codes: List[str]):
         self.stock_codes = stock_codes
@@ -182,7 +166,7 @@ class FinSentinel:
 
     def _setup_logging(self):
         if not os.path.exists(LOG_DIR): os.makedirs(LOG_DIR)
-        log_file = os.path.join(LOG_DIR, f"v4_1_top10_{datetime.datetime.now().strftime('%Y%m%d')}.log")
+        log_file = os.path.join(LOG_DIR, f"crawler_{datetime.datetime.now().strftime('%Y%m%d')}.log")
         logger = logging.getLogger("FinSentinel")
         logger.setLevel(logging.INFO)
         
@@ -201,8 +185,8 @@ class FinSentinel:
         return logger
 
     def update_dashboard(self, layout: Layout):
-        layout["header"].update(Panel(f"[bold cyan]FinSentinel v4.1[/bold cyan] | 频道: [yellow]资讯[/yellow] | 状态: [green]{self.system_status}[/green]", border_style="blue"))
-        layout["logs"].update(Panel("\n".join(self.log_buffer), title="NLP 流水线日志"))
+        layout["header"].update(Panel(f"[bold cyan]FinSentinel v4.1[/bold cyan] | 状态: [green]{self.system_status}[/green]", border_style="blue"))
+        layout["logs"].update(Panel("\n".join(self.log_buffer), title="爬虫与 NLP 流水线日志"))
         
         table = Table(expand=True)
         table.add_column("股票代码")
@@ -210,10 +194,10 @@ class FinSentinel:
         table.add_column("生成句子数", justify="right")
         for code, s in self.stats.items():
             table.add_row(code, str(s['articles']), str(s['sentences']))
-        layout["stats"].update(Panel(table, title="资讯采样统计"))
+        layout["stats"].update(Panel(table, title="实时统计"))
 
     def run_task(self):
-        self.logger.info(f">>> 启动 v4.1 资讯精准采样任务")
+        self.logger.info(f">>> 启动资讯采集任务")
         self.system_status = "执行中"
         for code in self.stock_codes:
             raw_df = self.crawler.fetch_page(code)
@@ -224,16 +208,16 @@ class FinSentinel:
                 self.stats[code]["sentences"] = len(final_df)
                 
                 date_str = datetime.datetime.now().strftime("%Y%m%d")
-                save_dir = os.path.join(DATA_ROOT, date_str)
+                save_dir = os.path.join(DATA_DIR, date_str)
                 if not os.path.exists(save_dir): os.makedirs(save_dir)
                 
-                output_path = os.path.join(save_dir, f"nlp_top5_{code}_{date_str}.csv")
+                output_path = os.path.join(save_dir, f"news_{code}_{date_str}.csv")
                 final_df.to_csv(output_path, index=False, encoding='utf-8-sig')
-                self.logger.info(f"导出成功: {output_path} (句子总数: {len(final_df)})")
+                self.logger.info(f"导出成功: {output_path}")
             
         self.total_runs += 1
         self.system_status = "待机"
-        self.logger.info("<<< v4.1 任务轮次结束")
+        self.logger.info("<<< 任务轮次结束")
 
 def main():
     parser = argparse.ArgumentParser()
